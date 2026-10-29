@@ -823,7 +823,20 @@ mod web {
             }
             return false;
         }
-        storage.and_then(|s| s.get_item(WEBGL_KEY).ok().flatten()).is_some()
+        // Remembered from an earlier `?webgl`, or ChromeOS: Chromebook GPUs share system RAM and
+        // some lose the whole WebGPU device under load, so they get WebGL2 unless `?webgpu` asks
+        // for WebGPU (the default for the other platforms is unchanged).
+        storage.and_then(|s| s.get_item(WEBGL_KEY).ok().flatten()).is_some() || chromeos()
+    }
+
+    /// Running on ChromeOS (`CrOS` in the user agent), or `?chromeos` to try it elsewhere.
+    fn chromeos() -> bool {
+        if crate::query_flag(&query(), "chromeos") {
+            return true;
+        }
+        let navigator = js_sys::Reflect::get(&js_sys::global(), &"navigator".into()).ok();
+        let agent = navigator.and_then(|n| js_sys::Reflect::get(&n, &"userAgent".into()).ok()).and_then(|v| v.as_string());
+        agent.is_some_and(|agent| agent.contains("CrOS"))
     }
 
     /// Fetch font bytes asynchronously through the browser.
